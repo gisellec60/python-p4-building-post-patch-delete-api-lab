@@ -2,7 +2,7 @@
 
 from flask import Flask, request, make_response, jsonify
 from flask_migrate import Migrate
-
+import json
 from models import db, Bakery, BakedGood
 
 app = Flask(__name__)
@@ -30,17 +30,48 @@ def bakeries():
     )
     return response
 
-@app.route('/bakeries/<int:id>')
+@app.route('/bakeries/<int:id>',methods=["Get","PATCH"])
 def bakery_by_id(id):
-
     bakery = Bakery.query.filter_by(id=id).first()
-    bakery_serialized = bakery.to_dict()
 
-    response = make_response(
-        bakery_serialized,
-        200
-    )
+    if request.method == "PATCH":
+        name = request.form["name"]
+        bakery.name = name
+        db.session.add(bakery)
+        db.session.commit()
+    
+    bakery_serialized = bakery.to_dict()    
+    response = make_response(bakery_serialized,200  )
     return response
+
+@app.route('/baked_goods',methods=["POST","GET"])
+def add_baked_goods():
+    if request.method == "POST":
+        print(request.form)
+        name = request.form["name"]
+        price = request.form["price"]
+        bakery_id = request.form["bakery_id"]
+    
+        new_goods = BakedGood(
+            name = name,
+            price = price,
+            bakery_id = bakery_id
+        )
+
+        db.session.add(new_goods)
+        db.session.commit()
+
+        new_baked_goods = new_goods.to_dict()
+
+        json_str = json.dumps(new_baked_goods, indent=4)
+        response = make_response(json_str,201)
+ 
+        response.headers["Content-Type"] = "application/json" 
+
+        return response
+    else:
+        return "<h1>I don't know what I'm doing here at all!!!</h1>"
+
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
@@ -65,6 +96,19 @@ def most_expensive_baked_good():
         200
     )
     return response
+
+@app.route('/baked_goods/<int:id>', methods=["DELETE"])
+def delete_baked_goods(id):
+    # baked_good = BakedGood.query.filter_by(id=id).first()
+      baked_good = BakedGood.query.get(id)
+      print(baked_good)
+      db.session.delete(baked_good)
+      db.session.commit()
+      
+      message = {
+          "message": "record successfull deleted"
+      }
+      return message     
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
